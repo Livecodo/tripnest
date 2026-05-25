@@ -135,6 +135,71 @@ They are automatically added as a collaborator to the trip after signing in.
 
 ---
 
+## ⚠️ Prototype Status
+
+> **This project is a working prototype.** It demonstrates the core concept and is live for preview, but is **not yet production-ready**. The sections below outline what would need to be addressed before a real-world deployment.
+
+---
+
+## 🗺️ Production Roadmap
+
+### 🔐 Security & Authentication
+- [ ] **Email verification** — users can currently sign up without verifying their email address
+- [ ] **Password strength enforcement** — no minimum complexity rules on registration
+- [ ] **Rate limiting on auth endpoints** — brute-force protection for sign-in/sign-up
+- [ ] **Session expiry & refresh token rotation** — long-lived sessions are a security risk
+- [ ] **Row-Level Security (RLS) audit** — ensure database policies prevent cross-vault data leaks
+- [ ] **Invite code expiry** — invite codes (`Math.random()` 6-char strings) never expire and have no revocation mechanism
+
+### 📁 Storage & Uploads
+- [ ] **Per-user storage quota** — no limit on how many files a user can upload; could exhaust R2 budget
+- [ ] **Server-side file type validation** — only client-side MIME checks exist; the edge function should re-validate before issuing signed URLs
+- [ ] **Video thumbnail generation** — videos have no thumbnail (`thumbnail_url: null`); a serverless worker (e.g. Cloudflare Worker + ffmpeg) should auto-generate one
+- [ ] **Image dimensions accuracy** — width/height are hardcoded to `800×600` and `1920×1080` fallbacks instead of reading actual image metadata
+- [ ] **Orphaned file cleanup** — if the DB insert fails after R2 upload succeeds, the file stays in R2 forever with no reference; needs a reconciliation job
+- [ ] **R2 CORS policy review** — presigned PUT URLs are open; should be scoped to specific origins in production
+
+### 🏗️ Architecture & Code Quality
+- [ ] **`any` types** — `useStore.ts` uses `/* eslint-disable @typescript-eslint/no-explicit-any */` throughout; all `any` should be replaced with proper types
+- [ ] **Invite code collision** — `Math.random().toString(36).substring(2, 8)` has no uniqueness guarantee at scale; use UUID or check-before-insert
+- [ ] **Notification persistence** — notifications are stored in `localStorage` only; lost on new devices / private browsing; needs a `notifications` DB table
+- [ ] **Ping interval leak** — `_tripnestPingInterval` is stored on `window`; multiple vault navigations could leak intervals if cleanup isn't called correctly
+- [ ] **OpenRouter API key in client** — the AI key is stored in `localStorage` and sent from the browser; should be proxied through a server-side edge function
+- [ ] **Error boundaries** — no React `ErrorBoundary` components; a single component crash takes down the whole page
+- [ ] **Loading skeletons** — most data fetches show no loading state; users see blank screens during slow connections
+
+### 🧪 Testing
+- [ ] **Unit tests** — no test suite exists (`jest`, `vitest`, or similar)
+- [ ] **Integration tests** — no end-to-end tests (e.g. Playwright or Cypress)
+- [ ] **CI pipeline** — no GitHub Actions workflow for lint, type-check, or tests on pull requests
+
+### 📈 Scalability & Observability
+- [ ] **Logging & monitoring** — errors are only `console.error`; no Sentry, Datadog, or similar
+- [ ] **Pagination** — all media is fetched in a single query (`.select('*')`); large vaults will be slow and expensive
+- [ ] **Search & filtering** — no ability to search or filter media within a vault
+- [ ] **Analytics** — no usage tracking to understand feature adoption
+
+### 🌍 Compliance & UX
+- [ ] **GDPR / data deletion** — no account deletion flow; no data export
+- [ ] **Accessibility (a11y)** — keyboard navigation and ARIA labels not fully implemented
+- [ ] **Offline support / PWA** — app fails silently on network loss; no service worker
+- [ ] **Mobile app** — Capacitor is installed as a dependency but not configured or built
+
+---
+
+## ✅ What's Already Production-Quality
+
+Despite being a prototype, several things are well-implemented:
+
+- **Client-side image compression** — WebP conversion + thumbnail generation before upload ✅
+- **Concurrent upload queue** — max 3 parallel uploads with retry support ✅
+- **Real-time collaboration** — WebSocket presence, upload/delete/reaction events ✅
+- **Role-based vault membership** — `owner / admin / contributor / viewer` roles defined ✅
+- **Cascading deletes** — deleting a trip cleans up R2 storage and DB records ✅
+- **Signed upload URLs** — files go directly to R2 via presigned PUT, not through the server ✅
+
+---
+
 ## 📄 License
 
 MIT — feel free to fork and build on top of TripNest.
